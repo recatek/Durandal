@@ -23,7 +23,7 @@ namespace Durandal
       IConfiguration config = Program.BuildConfig();
 
       IServiceProvider services = Program.ConfigureServices(client, config);
-      services.GetRequiredService<LogService>();
+      services.GetRequiredService<LoggingService>();
       await services.GetRequiredService<MessageService>().Initialize(services);
 
       await client.LoginAsync(TokenType.Bot, config["token"]);
@@ -43,7 +43,7 @@ namespace Durandal
         .AddSingleton<MessageService>()
         // Logging
         .AddLogging()
-        .AddSingleton<LogService>()
+        .AddSingleton<LoggingService>()
         // Extra
         .AddSingleton(config)
         // Add additional services here...

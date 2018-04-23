@@ -9,7 +9,7 @@ using Discord.WebSocket;
 
 namespace Durandal.Services
 {
-  public class LogService
+  public class LoggingService
   {
     private readonly DiscordSocketClient discord;
     private readonly CommandService commands;
@@ -17,7 +17,10 @@ namespace Durandal.Services
     private readonly ILogger discordLogger;
     private readonly ILogger commandLogger;
 
-    public LogService(DiscordSocketClient discord, CommandService commands, ILoggerFactory loggerFactory)
+    public LoggingService(
+      DiscordSocketClient discord, 
+      CommandService commands, 
+      ILoggerFactory loggerFactory)
     {
       this.discord = discord;
       this.commands = commands;
@@ -34,6 +37,16 @@ namespace Durandal.Services
     {
       factory.AddConsole();
       return factory;
+    }
+
+    public void LogInternal(LogMessage message)
+    {
+      this.discordLogger.Log(
+        LogLevelFromSeverity(message.Severity),
+        0,
+        message,
+        message.Exception,
+        (_1, _2) => message.ToString(prependTimestamp: false));
     }
 
     private Task LogDiscord(LogMessage message)
