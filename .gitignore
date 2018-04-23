@@ -1,3 +1,8 @@
+# Ignore VS and build files
 .vs
 Durandal/obj/*
 Durandal/bin/*
+
+# Ignore the Private directory and sensitive files
+Private
+*config.json
