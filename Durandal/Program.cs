@@ -38,17 +38,17 @@ namespace Durandal
       IConfiguration config)
     {
       return new ServiceCollection()
-          // Base
-          .AddSingleton(client)
-          .AddSingleton<CommandService>()
-          .AddSingleton<MessageService>()
-          // Logging
-          .AddLogging()
-          .AddSingleton<LogService>()
-          // Extra
-          .AddSingleton(config)
-          // Add additional services here...
-          .BuildServiceProvider();
+        // Base
+        .AddSingleton(client)
+        .AddSingleton<CommandService>()
+        .AddSingleton<MessageService>()
+        // Logging
+        .AddLogging()
+        .AddSingleton<LogService>()
+        // Extra
+        .AddSingleton(config)
+        // Add additional services here...
+        .BuildServiceProvider();
     }
 
     private static IConfiguration BuildConfig()
@@ -56,9 +56,9 @@ namespace Durandal
       try
       {
         return new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("config.json")
-            .Build();
+          .SetBasePath(Directory.GetCurrentDirectory())
+          .AddJsonFile("config.json")
+          .Build();
       }
       catch (FileNotFoundException)
       {
