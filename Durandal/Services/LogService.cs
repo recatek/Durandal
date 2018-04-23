@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
+
 using Microsoft.Extensions.Logging;
+
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
@@ -37,11 +39,11 @@ namespace Durandal.Services
     private Task LogDiscord(LogMessage message)
     {
       this.discordLogger.Log(
-          LogLevelFromSeverity(message.Severity),
-          0,
-          message,
-          message.Exception,
-          (_1, _2) => message.ToString(prependTimestamp: false));
+        LogLevelFromSeverity(message.Severity),
+        0,
+        message,
+        message.Exception,
+        (_1, _2) => message.ToString(prependTimestamp: false));
       return Task.CompletedTask;
     }
 
@@ -55,11 +57,11 @@ namespace Durandal.Services
       }
 
       this.commandLogger.Log(
-          LogLevelFromSeverity(message.Severity),
-          0,
-          message,
-          message.Exception,
-          (_1, _2) => message.ToString(prependTimestamp: false));
+        LogLevelFromSeverity(message.Severity),
+        0,
+        message,
+        message.Exception,
+        (_1, _2) => message.ToString(prependTimestamp: false));
       return Task.CompletedTask;
     }
 

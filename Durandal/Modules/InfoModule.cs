@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+
 using Discord.Commands;
 
 namespace Durandal.Modules
@@ -59,9 +60,9 @@ namespace Durandal.Modules
         "\\*\\*\\*END OF MESSAGE\\*\\*\\*");
 
     [Command("trouble")]
-    public Task Trouble() => ReplyAsync(InfoModule.TROUBLE);
+    public Task Trouble() => this.ReplyAsync(InfoModule.TROUBLE);
 
     [Command("candles")]
-    public Task Candles() => ReplyAsync(InfoModule.CANDLES);
+    public Task Candles() => this.ReplyAsync(InfoModule.CANDLES);
   }
 }
