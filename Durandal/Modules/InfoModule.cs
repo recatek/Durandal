@@ -64,5 +64,8 @@ namespace Durandal.Modules
 
     [Command("candles")]
     public Task Candles() => this.ReplyAsync(InfoModule.CANDLES);
+
+    [Command("setstatus")]
+    public Task SetStatus([Remainder]string status) => this.Context.Client.SetGameAsync(status);
   }
 }
