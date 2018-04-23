@@ -92,6 +92,11 @@ namespace Durandal.Services
       SocketCommandContext context, 
       SocketMessage message)
     {
+      // Don't screen messages from administrators
+      if (context.User is IGuildUser user)
+        if (user.GuildPermissions.Has(GuildPermission.Administrator))
+          return false;
+
       ISocketMessageChannel channel = context.Channel;
       if (FilterMessageAttachment(message))
       {
