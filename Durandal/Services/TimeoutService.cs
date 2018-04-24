@@ -2,6 +2,7 @@
 using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 
 using Discord;
@@ -30,7 +31,7 @@ namespace Durandal.Services
     }
 
     private readonly DiscordSocketClient discord;
-    private readonly ConcurrentBag<Timeout> timeouts;
+    private readonly ConcurrentDictionary<ulong, Timeout> timeouts;
 
     private volatile bool isRunning;
 
@@ -39,13 +40,13 @@ namespace Durandal.Services
     {
       this.discord = discord;
 
-      this.timeouts = new ConcurrentBag<Timeout>();
+      this.timeouts = new ConcurrentDictionary<ulong, Timeout>();
       this.isRunning = false;
 
       this.discord.Ready += this.OnReady;
     }
 
-    public void AddTimeout(
+    public async Task AddTimeout(
       SocketCommandContext context,
       SocketUser user, 
       TimeSpan time,
@@ -54,15 +55,32 @@ namespace Durandal.Services
       string timeFormatted = Util.PrintHuman(time);
       DateTimeOffset expiration = context.Message.Timestamp + time;
 
-      context.Channel.SendMessageAsync(
+      await context.Channel.SendMessageAsync(
         $"{user.Mention} timed out for {timeFormatted} " +
         $"by {context.User.Mention}" +
-        (string.IsNullOrEmpty(reason) ? "" : $", reason: {reason}"));
+        (string.IsNullOrEmpty(reason) ? "." : $", reason: {reason}"));
+
+      // TODO: Take longer if already exists
+      this.timeouts[user.Id] = new Timeout(user, expiration, context.Channel);
+    }
+
+    private void RetireTimeout(ulong userId)
+    {
+      this.timeouts.Remove(userId, out Timeout value);
+      value.Channel.SendMessageAsync(
+        $"{value.User.Mention} is no longer timed out.");
     }
 
     private void Update()
     {
-      Console.WriteLine("Update()");
+      DateTime now = DateTime.Now;
+      List<ulong> toRemove = new List<ulong>();
+
+      foreach (var timeout in this.timeouts)
+        if (timeout.Value.Expiration < now)
+          toRemove.Add(timeout.Key);
+      foreach (ulong userId in toRemove)
+        this.RetireTimeout(userId);
     }
 
     private async Task RunTimer()

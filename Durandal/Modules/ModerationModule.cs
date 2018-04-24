@@ -74,7 +74,7 @@ namespace Durandal.Modules
       }
 
       await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
-      this.timeout.AddTimeout(this.Context, user, time, reason);
+      await this.timeout.AddTimeout(this.Context, user, time, reason);
     }
     #endregion
 
@@ -172,7 +172,7 @@ namespace Durandal.Modules
         $"{sender.Mention} purged {messageCount} " +
         ((user == null) ? "" : $"by {user.Mention} ") +
         $"sent within {timeFormatted} in {channel}" +
-        (string.IsNullOrEmpty(reason) ? "" : $", reason: {reason}"));
+        (string.IsNullOrEmpty(reason) ? "." : $", reason: {reason}"));
     }
     #endregion
   }
