@@ -24,6 +24,7 @@ namespace Durandal
 
       IServiceProvider services = Program.ConfigureServices(client, config);
       services.GetRequiredService<LoggingService>();
+      services.GetRequiredService<TimeoutService>();
       await services.GetRequiredService<MessageService>().Initialize(services);
 
       await client.LoginAsync(TokenType.Bot, config["token"]);
@@ -40,6 +41,7 @@ namespace Durandal
         // Base
         .AddSingleton(client)
         .AddSingleton<CommandService>()
+        .AddSingleton<TimeoutService>()
         .AddSingleton<MessageService>()
         // Logging
         .AddLogging()

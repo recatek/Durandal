@@ -11,9 +11,15 @@ namespace Durandal.Services
 {
   public class LoggingService
   {
+    private static ILoggerFactory ConfigureLogging(ILoggerFactory factory)
+    {
+      return factory.AddConsole();
+    }
+
     private readonly DiscordSocketClient discord;
     private readonly CommandService commands;
     private readonly ILoggerFactory loggerFactory;
+
     private readonly ILogger discordLogger;
     private readonly ILogger commandLogger;
 
@@ -24,19 +30,13 @@ namespace Durandal.Services
     {
       this.discord = discord;
       this.commands = commands;
+      this.loggerFactory = LoggingService.ConfigureLogging(loggerFactory);
 
-      this.loggerFactory = ConfigureLogging(loggerFactory);
       this.discordLogger = this.loggerFactory.CreateLogger("discord");
       this.commandLogger = this.loggerFactory.CreateLogger("command");
 
-      this.discord.Log += LogDiscord;
-      this.commands.Log += LogCommand;
-    }
-
-    private ILoggerFactory ConfigureLogging(ILoggerFactory factory)
-    {
-      factory.AddConsole();
-      return factory;
+      this.discord.Log += this.LogDiscord;
+      this.commands.Log += this.LogCommand;
     }
 
     public void LogInternal(LogMessage message)

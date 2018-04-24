@@ -64,7 +64,7 @@ namespace Durandal
       return span;
     }
 
-    public static string PrintHuman(TimeSpan time)
+    public static string PrintHuman(this TimeSpan time)
     {
       List<string> elements = new List<string>();
 

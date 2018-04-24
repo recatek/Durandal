@@ -38,15 +38,14 @@ namespace Durandal.Services
     private readonly DiscordSocketClient discord;
     private readonly CommandService commands;
     private readonly LoggingService logging;
+
     private IServiceProvider provider;
 
     public MessageService(
-      IServiceProvider provider, 
       DiscordSocketClient discord, 
       CommandService commands,
       LoggingService logging)
     {
-      this.provider = provider;
       this.discord = discord;
       this.commands = commands;
       this.logging = logging;
@@ -82,6 +81,12 @@ namespace Durandal.Services
 
       if (result.Error.HasValue)
       {
+        if (result.Error.Value == CommandError.ObjectNotFound)
+        {
+          await context.Channel.SendMessageAsync(result.ErrorReason);
+          return;
+        }
+
         string input = $"{message.Author.ReadableName()}: {message.Content}";
         string errorFull = input + " -- " + result.ToString();
         this.logging.LogInternal(Util.CreateLog(LogSeverity.Error, errorFull));
@@ -100,7 +105,8 @@ namespace Durandal.Services
       ISocketMessageChannel channel = context.Channel;
       if (FilterMessageAttachment(message))
       {
-        context.Channel.SendMessageAsync(message.Author.Mention + " -- disallowed file format");
+        context.Channel.SendMessageAsync(
+          $"Disallowed file format. ({message.Author.Mention})");
         channel.DeleteMessagesAsync(new[] { message });
         return true;
       }
