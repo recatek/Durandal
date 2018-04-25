@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 
 using Discord;
@@ -11,6 +13,8 @@ namespace Durandal.Services
 {
   public class DatabaseService
   {
+    // TODO: What if we leave a server?
+
     private const string FILE_NAME = "data.db";
 
     private const string SERVER_COLLECTION = "servers";
@@ -37,6 +41,8 @@ namespace Durandal.Services
       }
     }
 
+    public event Action<ulong> ServerDataLoaded;
+
     private readonly DiscordSocketClient discord;
     private readonly LoggingService logging;
 
@@ -44,6 +50,38 @@ namespace Durandal.Services
 
     private LiteDatabase database;
     private LiteCollection<ServerData> serverCollection;
+
+    #region Timeout
+    public void SetTimeout(
+      ulong serverId,
+      ulong playerId, 
+      long expiration)
+    {
+      if (this.VerifyGetServer(serverId, out ServerData data))
+      {
+        data.Timeouts[playerId] = expiration;
+        this.serverCollection.Update(data);
+      }
+    }
+
+    public void ClearTimeout(
+      ulong serverId,
+      ulong playerId)
+    {
+      if (this.VerifyGetServer(serverId, out ServerData data))
+      {
+        data.Timeouts.TryRemove(playerId, out long _);
+        this.serverCollection.Update(data);
+      }
+    }
+
+    public IEnumerable<KeyValuePair<ulong, long>> GetTimeouts(ulong serverId)
+    {
+      if (this.VerifyGetServer(serverId, out ServerData data))
+        return data.Timeouts;
+      return Enumerable.Empty<KeyValuePair<ulong, long>>();
+    }
+    #endregion
 
     public DatabaseService(
       DiscordSocketClient discord,
@@ -75,7 +113,24 @@ namespace Durandal.Services
           $"Opening database for {guild.Name}"));
       this.servers[guild.Id] = this.GetOrAdd(guild);
 
+      this.ServerDataLoaded?.Invoke(guild.Id);
+
       return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Gets a ServerData by Id and verifies its validity.
+    /// </summary>
+    private bool VerifyGetServer(ulong serverId, out ServerData data)
+    {
+      if (this.servers.TryGetValue(serverId, out data))
+        return true;
+
+      this.logging.LogInternal(
+        Util.CreateLog(
+          LogSeverity.Error,
+          $"Unrecognized server {serverId}"));
+      return false;
     }
 
     /// <summary>
