@@ -87,7 +87,7 @@ namespace Durandal
 
     public static LogMessage CreateLog(LogSeverity severity, string message)
     {
-      return new LogMessage(severity, null, message);
+      return new LogMessage(severity, "Internal", message);
     }
 
     public static string GetExtension(string filename)

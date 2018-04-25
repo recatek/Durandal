@@ -56,8 +56,8 @@ namespace Durandal.Services
     public async Task Initialize(IServiceProvider provider)
     {
       this.provider = provider;
+
       await this.commands.AddModulesAsync(Assembly.GetEntryAssembly());
-      // Add additional initialization code here...
     }
 
     private async Task MessageReceived(SocketMessage rawMessage)
@@ -103,7 +103,7 @@ namespace Durandal.Services
           return false;
 
       ISocketMessageChannel channel = context.Channel;
-      if (FilterMessageAttachment(message))
+      if (this.FilterMessageAttachment(message))
       {
         context.Channel.SendMessageAsync(
           $"Disallowed file format. ({message.Author.Mention})");
