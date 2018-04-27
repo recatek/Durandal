@@ -19,24 +19,24 @@ namespace Durandal.Services
 
     private const string SERVER_COLLECTION = "servers";
 
-    private class ServerData
+    private class GuildData
     {
       [BsonId]
-      public ulong ServerId { get; set; }
+      public ulong GuildId { get; set; }
 
       public ulong LogChannelId { get; set; }
       public ulong TimeoutRoleId { get; set; }
 
-      public ConcurrentDictionary<ulong, long> Timeouts { get; set; }
+      public ConcurrentDictionary<ulong, DateTimeOffset> Timeouts { get; set; }
       public ConcurrentDictionary<ulong, bool> Namelocks { get; set; }
 
-      public ServerData() { }
+      public GuildData() { }
 
-      public ServerData(ulong serverId)
+      public GuildData(ulong guildId)
       {
-        this.ServerId = serverId;
+        this.GuildId = guildId;
 
-        this.Timeouts = new ConcurrentDictionary<ulong, long>();
+        this.Timeouts = new ConcurrentDictionary<ulong, DateTimeOffset>();
         this.Namelocks = new ConcurrentDictionary<ulong, bool>();
       }
     }
@@ -46,40 +46,112 @@ namespace Durandal.Services
     private readonly DiscordSocketClient discord;
     private readonly LoggingService logging;
 
-    private readonly ConcurrentDictionary<ulong, ServerData> servers;
+    private readonly ConcurrentDictionary<ulong, GuildData> servers;
 
     private LiteDatabase database;
-    private LiteCollection<ServerData> serverCollection;
+    private LiteCollection<GuildData> serverCollection;
+
+    #region Servers
+    public ICollection<ulong> GetOpenServers()
+    {
+      return this.servers.Keys;
+    }
+    #endregion
+
+    #region LogChannel
+    public void SetLogChannel(
+      SocketGuild guild,
+      ISocketMessageChannel logChannel)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        data.LogChannelId = logChannel.Id;
+        this.serverCollection.Update(data);
+      }
+    }
+
+    public ISocketMessageChannel GetLogChannel(
+      SocketGuild guild)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+        return guild.GetChannel(data.LogChannelId) as ISocketMessageChannel;
+      return null;
+    }
+
+    public bool TryGetLogChannel(
+      SocketGuild guild,
+      out ISocketMessageChannel channel)
+    {
+      channel = this.GetLogChannel(guild);
+      return (channel != null);
+    }
+    #endregion
 
     #region Timeout
+    public void SetTimeoutRole(
+      SocketGuild guild,
+      SocketRole role)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        data.TimeoutRoleId = role.Id;
+        this.serverCollection.Update(data);
+      }
+    }
+
+    public SocketRole GetTimeoutRole(
+      SocketGuild guild)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+        return guild.GetRole(data.TimeoutRoleId);
+      return default;
+    }
+
     public void SetTimeout(
-      ulong serverId,
-      ulong playerId, 
-      long expiration)
+      SocketGuild guild,
+      SocketUser user, 
+      DateTimeOffset expiration)
     {
-      if (this.VerifyGetServer(serverId, out ServerData data))
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
       {
-        data.Timeouts[playerId] = expiration;
+        data.Timeouts[user.Id] = expiration;
         this.serverCollection.Update(data);
       }
     }
 
-    public void ClearTimeout(
-      ulong serverId,
-      ulong playerId)
+    /// <summary>
+    /// Removes all expired timeouts given a time and updates the database.
+    /// Returns tuples of (guildId, userId) of the expired timeouts.
+    /// </summary>
+    public List<Tuple<ulong, ulong>> ExpireTimeouts(
+      DateTime currentTime)
     {
-      if (this.VerifyGetServer(serverId, out ServerData data))
-      {
-        data.Timeouts.TryRemove(playerId, out long _);
-        this.serverCollection.Update(data);
-      }
-    }
+      // Pair is (guildId, userId)
+      List<Tuple<ulong, ulong>> expired = new List<Tuple<ulong, ulong>>();
+      List<ulong> toRemove = new List<ulong>();
 
-    public IEnumerable<KeyValuePair<ulong, long>> GetTimeouts(ulong serverId)
-    {
-      if (this.VerifyGetServer(serverId, out ServerData data))
-        return data.Timeouts;
-      return Enumerable.Empty<KeyValuePair<ulong, long>>();
+      foreach (GuildData data in this.servers.Values)
+      {
+        toRemove.Clear();
+
+        foreach (var timeout in data.Timeouts)
+        {
+          if (timeout.Value < currentTime)
+          {
+            expired.Add(new Tuple<ulong, ulong>(data.GuildId, timeout.Key));
+            toRemove.Add(timeout.Key);
+          }
+        }
+
+        if (toRemove.Count > 0)
+        {
+          foreach (ulong userId in toRemove)
+            data.Timeouts.TryRemove(userId, out var unused);
+          this.serverCollection.Update(data);
+        }
+      }
+
+      return expired;
     }
     #endregion
 
@@ -90,7 +162,7 @@ namespace Durandal.Services
       this.discord = discord;
       this.logging = logging;
 
-      this.servers = new ConcurrentDictionary<ulong, ServerData>();
+      this.servers = new ConcurrentDictionary<ulong, GuildData>();
 
       discord.GuildAvailable += this.OnGuildAvailable;
     }
@@ -99,8 +171,8 @@ namespace Durandal.Services
     {
       this.database = new LiteDatabase(FILE_NAME);
       this.serverCollection = 
-        this.database.GetCollection<ServerData>(SERVER_COLLECTION);
-      this.serverCollection.EnsureIndex(x => x.ServerId);
+        this.database.GetCollection<GuildData>(SERVER_COLLECTION);
+      this.serverCollection.EnsureIndex(x => x.GuildId);
 
       return Task.CompletedTask;
     }
@@ -121,30 +193,30 @@ namespace Durandal.Services
     /// <summary>
     /// Gets a ServerData by Id and verifies its validity.
     /// </summary>
-    private bool VerifyGetServer(ulong serverId, out ServerData data)
+    private bool VerifyGetServer(ulong guildId, out GuildData data)
     {
-      if (this.servers.TryGetValue(serverId, out data))
+      if (this.servers.TryGetValue(guildId, out data))
         return true;
 
       this.logging.LogInternal(
         Util.CreateLog(
           LogSeverity.Error,
-          $"Unrecognized server {serverId}"));
+          $"Unrecognized server {guildId}"));
       return false;
     }
 
     /// <summary>
     /// Gets the given guild from the server collection or adds it.
     /// </summary>
-    private ServerData GetOrAdd(SocketGuild guild)
+    private GuildData GetOrAdd(SocketGuild guild)
     {
-      ServerData data = 
+      GuildData data = 
         this.serverCollection.FindOne(
-          x => x.ServerId == guild.Id);
+          x => x.GuildId == guild.Id);
 
       if (data == null)
       {
-        data = new ServerData(guild.Id);
+        data = new GuildData(guild.Id);
         this.serverCollection.Insert(data);
       }
 

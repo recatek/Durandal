@@ -50,7 +50,7 @@ namespace Durandal.Modules
     [RequireUserPermission(GuildPermission.KickMembers)]
     public Task Timeout()
     {
-      return this.ReplyAsync("Format: `!timeout <@mention> <time> [<reason>]`");
+      return this.ReplyAsync("Usage: `!timeout <@user> <time> [<reason>]`");
     }
 
     [Command("timeout")]
@@ -59,7 +59,7 @@ namespace Durandal.Modules
     public Task Timeout(
       [Remainder]string reason)
     {
-      return this.ReplyAsync("Format: `!timeout <@mention> <time> [<reason>]`");
+      return this.ReplyAsync("Usage: `!timeout <@user> <time> [<reason>]`");
     }
 
     private async Task PerformTimeout(
@@ -120,7 +120,7 @@ namespace Durandal.Modules
     [RequireUserPermission(GuildPermission.Administrator)]
     public Task Purge(SocketGuildUser user)
     {
-      return this.ReplyAsync("Format: `!purge [<@user>] <time> [<reason>]`");
+      return this.ReplyAsync("Usage: `!purge [<@user>] <time> [<reason>]`");
     }
 
     [Command("purge")]
@@ -128,7 +128,7 @@ namespace Durandal.Modules
     [RequireUserPermission(GuildPermission.Administrator)]
     public Task Purge()
     {
-      return this.ReplyAsync("Format: `!purge [<@user>] <time> [<reason>]`");
+      return this.ReplyAsync("Usage: `!purge [<@user>] <time> [<reason>]`");
     }
 
     private async Task PerformPurge(
@@ -159,7 +159,6 @@ namespace Durandal.Modules
       // Format the channel and time
       string channel =
         MentionUtils.MentionChannel(this.Context.Message.Channel.Id);
-      string timeFormatted = Util.PrintHuman(time);
 
       // Format how many messages were filtered
       int numFiltered = filtered.Count;
@@ -171,7 +170,7 @@ namespace Durandal.Modules
       await this.ReplyAsync(
         $"{sender.Mention} purged {messageCount} " +
         ((user == null) ? "" : $"by {user.Mention} ") +
-        $"sent within {timeFormatted} in {channel}" +
+        $"sent within {Util.PrintHuman(time)} in {channel}" +
         (string.IsNullOrEmpty(reason) ? "." : $", reason: {reason}"));
     }
     #endregion
