@@ -73,7 +73,8 @@ namespace Durandal.Modules
         return;
       }
 
-      await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
+      // TODO: Deleting the command here would erroneously log a pingdelete
+      //await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
       await this.timeout.AddTimeout(this.Context, user, time, reason);
     }
     #endregion
@@ -109,7 +110,8 @@ namespace Durandal.Modules
     private async Task PerformUntimeout(
       SocketGuildUser user)
     {
-      await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
+      // TODO: Deleting the command here would erroneously log a pingdelete
+      //await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
       await this.timeout.RemoveTimeout(this.Context, user);
     }
     #endregion

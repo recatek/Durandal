@@ -1,8 +1,9 @@
 ﻿using System;
-using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+
+using Microsoft.Extensions.Configuration;
 
 using Discord;
 using Discord.Commands;
@@ -12,7 +13,7 @@ namespace Durandal.Services
 {
   public class MessageService
   {
-    // TODO: Get from config
+    // TODO: Get from config?
     private static readonly string[] ALLOWED_EXTENSIONS = 
       new string[] 
       {
@@ -37,20 +38,28 @@ namespace Durandal.Services
 
     private readonly DiscordSocketClient discord;
     private readonly CommandService commands;
+    private readonly DatabaseService database;
     private readonly LoggingService logging;
+
+    private readonly char prefix;
 
     private IServiceProvider provider;
 
     public MessageService(
-      DiscordSocketClient discord, 
+      DiscordSocketClient discord,
       CommandService commands,
-      LoggingService logging)
+      DatabaseService database,
+      LoggingService logging,
+      IConfiguration config)
     {
       this.discord = discord;
       this.commands = commands;
+      this.database = database;
       this.logging = logging;
+      this.prefix = char.Parse(config["prefix"] ?? "!");
 
-      this.discord.MessageReceived += MessageReceived;
+      this.discord.MessageReceived += this.OnMessageReceived;
+      this.discord.MessageDeleted += this.OnMessageDeleted;
     }
 
     public async Task Initialize(IServiceProvider provider)
@@ -60,7 +69,10 @@ namespace Durandal.Services
       await this.commands.AddModulesAsync(Assembly.GetEntryAssembly());
     }
 
-    private async Task MessageReceived(SocketMessage rawMessage)
+    /// <summary>
+    /// Process incoming messages.
+    /// </summary>
+    private async Task OnMessageReceived(SocketMessage rawMessage)
     {
       // Ignore system messages and messages from bots
       if (!(rawMessage is SocketUserMessage message))
@@ -73,8 +85,7 @@ namespace Durandal.Services
         return;
 
       int argPos = 0;
-      // TODO: Get from config
-      if (message.HasCharPrefix('!', ref argPos) == false)
+      if (message.HasCharPrefix(this.prefix, ref argPos) == false)
         return;
       var result = 
         await this.commands.ExecuteAsync(context, argPos, this.provider);
@@ -93,6 +104,9 @@ namespace Durandal.Services
       }
     }
 
+    /// <summary>
+    /// Screen incoming messages for content.
+    /// </summary>
     private bool ScreenMessage(
       SocketCommandContext context, 
       SocketMessage message)
@@ -114,6 +128,9 @@ namespace Durandal.Services
       return false;
     }
 
+    /// <summary>
+    /// Search for attachments with illegal file extensions.
+    /// </summary>
     private bool FilterMessageAttachment(SocketMessage message)
     {
       foreach (var attachment in message.Attachments)
@@ -124,6 +141,46 @@ namespace Durandal.Services
       }
 
       return false;
+    }
+
+    /// <summary>
+    /// Log any messages that were deleted containing pings (to catch people
+    /// trolling with ping-delete).
+    /// </summary>
+    private async Task OnMessageDeleted(
+      Cacheable<IMessage, ulong> cachedMessage,
+      ISocketMessageChannel channel)
+    {
+      if (cachedMessage.Value is SocketUserMessage socketMessage)
+      {
+        int totalPings =
+          socketMessage.MentionedUsers.Count +
+          socketMessage.MentionedRoles.Count;
+        if (totalPings == 0)
+          return;
+
+        if (channel is SocketTextChannel socketChannel)
+        {
+          if (this.database.TryGetLogChannel(socketChannel.Guild, out var logChannel))
+          {
+            // Don't freak out in the log channel
+            if (socketChannel.Id == logChannel.Id)
+              return;
+
+            List<string> mentions = new List<string>();
+            foreach (SocketUser mentionedUser in socketMessage.MentionedUsers)
+              mentions.Add(mentionedUser.Mention);
+            foreach (SocketRole mentionedRole in socketMessage.MentionedRoles)
+              mentions.Add(mentionedRole.Mention);
+
+            // Format the log string
+            string username = socketMessage.Author.Mention;
+            string joined = string.Join(", ", mentions);
+            await logChannel.SendMessageAsync(
+              $"Logging deleted message by {username} pinging: {joined}");
+          }
+        }
+      }
     }
   }
 }

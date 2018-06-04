@@ -19,8 +19,13 @@ namespace Durandal
 
     public static async Task RunAsync(string[] args)
     {
-      DiscordSocketClient client = new DiscordSocketClient();
       IConfiguration config = Program.BuildConfig();
+
+      DiscordSocketConfig socketConfig = new DiscordSocketConfig
+      {
+        MessageCacheSize = int.Parse(config["cacheSize"] ?? "0")
+      };
+      DiscordSocketClient client = new DiscordSocketClient(socketConfig);
 
       IServiceProvider services = Program.ConfigureServices(client, config);
       services.GetRequiredService<LoggingService>();

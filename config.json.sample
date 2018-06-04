@@ -1,4 +1,6 @@
 {
 	"prefix": "!",
 	"token": null
+	"ownerId": 12345678901234567890,
+	"cacheSize": 0
 }
