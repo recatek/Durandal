@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
 
 using Discord;
 using Discord.Commands;
@@ -26,6 +24,7 @@ namespace Durandal.Services
       this.isRunning = false;
 
       this.discord.Ready += this.OnReady;
+      this.discord.UserJoined += this.OnUserJoined;
     }
 
     /// <summary>
@@ -37,23 +36,70 @@ namespace Durandal.Services
       TimeSpan time,
       string reason)
     {
+      SocketRole role = this.database.GetTimeoutRole(context.Guild);
+      if (role == default(SocketRole))
+      {
+        await context.Channel.SendMessageAsync($"No timeout role set");
+        return;
+      }
+
       string timeFormatted = Util.PrintHuman(time);
       DateTimeOffset expiration = context.Message.Timestamp + time;
 
-      // Update the database
-      this.database.SetTimeout(
-        context.Guild,
-        user,
-        expiration);
+      if (user is IGuildUser guildUser)
+      {
+        // Add the role
+        await guildUser.AddRoleAsync(role);
 
-      // Send confirmation message
-      string message =
-        $"{user.Mention} timed out for {timeFormatted} " +
-        $"by {context.User.Mention}" +
-        (string.IsNullOrEmpty(reason) ? "." : $", reason: {reason}");
-      await context.Channel.SendMessageAsync(message);
-      if (this.database.TryGetLogChannel(context.Guild, out var logChannel))
-        await logChannel.SendMessageAsync(message);
+        // Update the database
+        this.database.SetTimeout(
+          context.Guild,
+          user,
+          expiration);
+
+        // Send confirmation message
+        string message =
+          $"{user.Mention} timed out for {timeFormatted} " +
+          $"by {context.User.Mention}" +
+          (string.IsNullOrEmpty(reason) ? "." : $", reason: {reason}");
+        await context.Channel.SendMessageAsync(message);
+        if (this.database.TryGetLogChannel(context.Guild, out var logChannel))
+          await logChannel.SendMessageAsync(message);
+      }
+    }
+
+    /// <summary>
+    /// Clears and removes an existing timeout.
+    /// </summary>
+    public async Task RemoveTimeout(
+      SocketCommandContext context,
+      SocketUser user)
+    {
+      SocketRole role = this.database.GetTimeoutRole(context.Guild);
+      if (role == default(SocketRole))
+      {
+        await context.Channel.SendMessageAsync($"No timeout role set");
+        return;
+      }
+
+      if (user is IGuildUser guildUser)
+      {
+        // Add the role
+        await guildUser.RemoveRoleAsync(role);
+
+        // Update the database
+        this.database.ClearTimeout(
+          context.Guild,
+          user);
+
+        // Send confirmation message
+        string message =
+          $"{user.Mention} timeout removed " +
+          $"by {context.User.Mention}";
+        await context.Channel.SendMessageAsync(message);
+        if (this.database.TryGetLogChannel(context.Guild, out var logChannel))
+          await logChannel.SendMessageAsync(message);
+      }
     }
 
     /// <summary>
@@ -62,16 +108,28 @@ namespace Durandal.Services
     private async Task RetireTimeout(ulong guildId, ulong userId)
     {
       SocketGuild guild = this.discord.GetGuild(guildId);
-      SocketUser user = guild?.GetUser(userId);
-      if ((guild == null) || (user == null))
+      if (guild == null)
         return;
 
-      // TODO: Roles
+      SocketUser user = guild?.GetUser(userId);
+      if (user == null)
+        return;
 
-      string mention = MentionUtils.MentionUser(userId);
-      string message = $"{mention} is no longer timed out.";
-      if (this.database.TryGetLogChannel(guild, out var logChannel))
-        await logChannel.SendMessageAsync(message);
+      SocketRole role = this.database.GetTimeoutRole(guild);
+      if (role == default(SocketRole))
+        return;
+
+      if (user is IGuildUser guildUser)
+      {
+        // Remove the role
+        await guildUser.RemoveRoleAsync(role);
+
+        // Notify
+        string mention = MentionUtils.MentionUser(userId);
+        string message = $"{mention} is no longer timed out.";
+        if (this.database.TryGetLogChannel(guild, out var logChannel))
+          await logChannel.SendMessageAsync(message);
+      }
     }
 
     /// <summary>
@@ -108,6 +166,21 @@ namespace Durandal.Services
       }
 
       return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Re-adds a timeout if the user leaves and rejoins.
+    /// </summary>
+    private async Task OnUserJoined(SocketGuildUser user)
+    {
+      if (this.database.CheckTimeout(user.Guild, user))
+      {
+        SocketRole role = this.database.GetTimeoutRole(user.Guild);
+        if (role == default(SocketRole))
+          return;
+
+        await user.AddRoleAsync(role);
+      }
     }
   }
 }

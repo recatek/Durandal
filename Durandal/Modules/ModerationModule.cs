@@ -57,7 +57,7 @@ namespace Durandal.Modules
     [Summary("Timeout a mentioned user for a given period of time.")]
     [RequireUserPermission(GuildPermission.KickMembers)]
     public Task Timeout(
-      [Remainder]string reason)
+      [Remainder]string _)
     {
       return this.ReplyAsync("Usage: `!timeout <@user> <time> [<reason>]`");
     }
@@ -75,6 +75,42 @@ namespace Durandal.Modules
 
       await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
       await this.timeout.AddTimeout(this.Context, user, time, reason);
+    }
+    #endregion
+
+    #region Untimeout
+    [Priority(0)]
+    [Command("untimeout")]
+    [Summary("Timeout a mentioned user for a given period of time.")]
+    [RequireUserPermission(GuildPermission.KickMembers)]
+    public Task Untimeout(
+      SocketGuildUser user)
+    {
+      return this.PerformUntimeout(user);
+    }
+
+    [Command("timeout")]
+    [Summary("Timeout a mentioned user for a given period of time.")]
+    [RequireUserPermission(GuildPermission.KickMembers)]
+    public Task Untimeout()
+    {
+      return this.ReplyAsync("Usage: `!untimeout <@user>`");
+    }
+
+    [Command("timeout")]
+    [Summary("Timeout a mentioned user for a given period of time.")]
+    [RequireUserPermission(GuildPermission.KickMembers)]
+    public Task Untimeout(
+      [Remainder]string _)
+    {
+      return this.ReplyAsync("Usage: `!untimeout <@user>`");
+    }
+
+    private async Task PerformUntimeout(
+      SocketGuildUser user)
+    {
+      await this.Context.Channel.DeleteMessagesAsync(new[] { this.Context.Message });
+      await this.timeout.RemoveTimeout(this.Context, user);
     }
     #endregion
 
@@ -142,6 +178,10 @@ namespace Durandal.Modules
         await this.ReplyAsync($"Invalid time: `{timeString}`.");
         return;
       }
+
+      // Clamp the time at ten days (avoid old delete errors)
+      if (time.TotalSeconds > 864000)
+        time = TimeSpan.FromDays(10);
 
       // Gather the messages for purging
       var cutoff = this.Context.Message.Timestamp - time;

@@ -119,6 +119,28 @@ namespace Durandal.Services
       }
     }
 
+    public void ClearTimeout(
+      SocketGuild guild,
+      SocketUser user)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        data.Timeouts.TryRemove(user.Id, out _);
+        this.serverCollection.Update(data);
+      }
+    }
+
+    public bool CheckTimeout(
+      SocketGuild guild,
+      SocketUser user)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        return data.Timeouts.ContainsKey(user.Id);
+      }
+      return false;
+    }
+
     /// <summary>
     /// Removes all expired timeouts given a time and updates the database.
     /// Returns tuples of (guildId, userId) of the expired timeouts.
@@ -201,7 +223,7 @@ namespace Durandal.Services
       this.logging.LogInternal(
         Util.CreateLog(
           LogSeverity.Error,
-          $"Unrecognized server {guildId}"));
+          $"Unrecognized guild {guildId}"));
       return false;
     }
 

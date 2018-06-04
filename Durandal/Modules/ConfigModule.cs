@@ -2,6 +2,8 @@
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
+using Microsoft.Extensions.Configuration;
+
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
@@ -16,13 +18,16 @@ namespace Durandal.Modules
 
     private readonly DatabaseService database;
     private readonly LoggingService logging;
+    private readonly ulong ownerId;
 
     public ConfigModule(
       DatabaseService database,
-      LoggingService logging)
+      LoggingService logging,
+      IConfiguration config)
     {
       this.database = database;
       this.logging = logging;
+      this.ownerId = ulong.Parse(config["ownerId"] ?? "0");
     }
 
     #region ShowConfig
@@ -31,6 +36,10 @@ namespace Durandal.Modules
     [Summary("Displays the config data for the given server.")]
     public async Task ShowConfig()
     {
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
       var channel = this.database.GetLogChannel(this.Context.Guild);
       var role = this.database.GetTimeoutRole(this.Context.Guild);
 
@@ -48,9 +57,13 @@ namespace Durandal.Modules
     [Command("showconfig")]
     [Summary("Displays the config data for the given server.")]
     [RequireUserPermission(GuildPermission.KickMembers)]
-    public Task ShowConfig([Remainder]string _)
+    public async Task ShowConfig([Remainder]string _)
     {
-      return this.ShowConfig();
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
+      await this.ShowConfig();
     }
     #endregion
 
@@ -60,6 +73,10 @@ namespace Durandal.Modules
     [Summary("Set the current channel as the logging channel for this discord.")]
     public async Task SetLog()
     {
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
       this.database.SetLogChannel(
         this.Context.Guild,
         this.Context.Channel);
@@ -76,9 +93,13 @@ namespace Durandal.Modules
     [Command("setlog")]
     [Summary("Set the current channel as the logging channel for this discord.")]
     [RequireUserPermission(GuildPermission.KickMembers)]
-    public Task SetLog([Remainder]string _)
+    public async Task SetLog([Remainder]string _)
     {
-      return this.SetLog();
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
+      await this.SetLog();
     }
     #endregion
 
@@ -88,6 +109,10 @@ namespace Durandal.Modules
     [Summary("Set the timeout role for this discord.")]
     public async Task SetTimeout(SocketRole role)
     {
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
       if (role != null)
       {
         this.database.SetTimeoutRole(this.Context.Guild, role);
@@ -101,16 +126,24 @@ namespace Durandal.Modules
 
     [Command("settimeout")]
     [Summary("Set the timeout role for this discord.")]
-    public Task SetTimeout()
+    public async Task SetTimeout()
     {
-      return this.ReplyAsync("Usage: `!settimeout <@role>`");
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
+      await this.ReplyAsync("Usage: `!settimeout <@role>`");
     }
 
     [Command("settimeout")]
     [Summary("Set the timeout role for this discord.")]
-    public Task SetTimeout([Remainder]string _)
+    public async Task SetTimeout([Remainder]string _)
     {
-      return this.ReplyAsync("Usage: `!settimeout <@role>`");
+      // Only the bot owner can do this
+      if (Context.User.Id != this.ownerId)
+        return;
+
+      await this.ReplyAsync("Usage: `!settimeout <@role>`");
     }
     #endregion
   }
