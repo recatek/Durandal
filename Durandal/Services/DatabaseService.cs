@@ -28,7 +28,7 @@ namespace Durandal.Services
       public ulong TimeoutRoleId { get; set; }
 
       public ConcurrentDictionary<ulong, DateTimeOffset> Timeouts { get; set; }
-      public ConcurrentDictionary<ulong, bool> Namelocks { get; set; }
+      public ConcurrentDictionary<ulong, string> Namelocks { get; set; }
 
       public GuildData() { }
 
@@ -37,7 +37,7 @@ namespace Durandal.Services
         this.GuildId = guildId;
 
         this.Timeouts = new ConcurrentDictionary<ulong, DateTimeOffset>();
-        this.Namelocks = new ConcurrentDictionary<ulong, bool>();
+        this.Namelocks = new ConcurrentDictionary<ulong, string>();
       }
     }
 
@@ -119,15 +119,17 @@ namespace Durandal.Services
       }
     }
 
-    public void ClearTimeout(
+    public bool ClearTimeout(
       SocketGuild guild,
       SocketUser user)
     {
+      bool result = false;
       if (this.VerifyGetServer(guild.Id, out GuildData data))
       {
-        data.Timeouts.TryRemove(user.Id, out _);
+        result = data.Timeouts.TryRemove(user.Id, out _);
         this.serverCollection.Update(data);
       }
+      return result;
     }
 
     public bool CheckTimeout(
@@ -174,6 +176,59 @@ namespace Durandal.Services
       }
 
       return expired;
+    }
+    #endregion
+
+    #region Namelock
+    public void SetNamelock(
+      SocketGuild guild,
+      SocketUser user,
+      string name)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        data.Namelocks[user.Id] = name;
+        this.serverCollection.Update(data);
+      }
+    }
+
+    public bool ClearNamelock(
+      SocketGuild guild,
+      SocketUser user)
+    {
+      bool result = false;
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        result = data.Namelocks.TryRemove(user.Id, out _);
+        this.serverCollection.Update(data);
+      }
+      return result;
+    }
+
+    public bool TryGetNamelock(
+      SocketGuild guild,
+      SocketUser user,
+      out string name)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        return data.Namelocks.TryGetValue(user.Id, out name);
+      }
+
+      name = null;
+      return false;
+    }
+
+    public IEnumerable<Tuple<ulong, string>> GetNamelocks(
+      SocketGuild guild)
+    {
+      if (this.VerifyGetServer(guild.Id, out GuildData data))
+      {
+        foreach (var value in data.Namelocks)
+          yield return new Tuple<ulong, string>(value.Key, value.Value);
+      }
+
+      yield break;
     }
     #endregion
 

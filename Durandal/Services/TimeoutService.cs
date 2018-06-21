@@ -84,21 +84,26 @@ namespace Durandal.Services
 
       if (user is IGuildUser guildUser)
       {
-        // Add the role
+        // Remove the role
         await guildUser.RemoveRoleAsync(role);
 
-        // Update the database
-        this.database.ClearTimeout(
-          context.Guild,
-          user);
-
-        // Send confirmation message
-        string message =
-          $"{user.Mention} timeout removed " +
-          $"by {context.User.Mention}";
-        await context.Channel.SendMessageAsync(message);
-        if (this.database.TryGetLogChannel(context.Guild, out var logChannel))
-          await logChannel.SendMessageAsync(message);
+        if (this.database.ClearTimeout(context.Guild, user))
+        {
+          // Send confirmation message
+          string message =
+            $"{user.Mention} timeout removed " +
+            $"by {context.User.Mention}";
+          await context.Channel.SendMessageAsync(message);
+          if (this.database.TryGetLogChannel(context.Guild, out var logChannel))
+            await logChannel.SendMessageAsync(message);
+        }
+        else
+        {
+          // Send error message
+          string message =
+            $"{user.Mention} timeout not found";
+          await context.Channel.SendMessageAsync(message);
+        }
       }
     }
 

@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 using Microsoft.Extensions.Configuration;
 
@@ -42,8 +43,9 @@ namespace Durandal.Services
     private readonly LoggingService logging;
 
     private readonly char prefix;
-
     private IServiceProvider provider;
+
+    private readonly ConcurrentDictionary<ulong, bool> ignoredMessages;
 
     public MessageService(
       DiscordSocketClient discord,
@@ -57,9 +59,15 @@ namespace Durandal.Services
       this.database = database;
       this.logging = logging;
       this.prefix = char.Parse(config["prefix"] ?? "!");
+      this.ignoredMessages = new ConcurrentDictionary<ulong, bool>();
 
       this.discord.MessageReceived += this.OnMessageReceived;
       this.discord.MessageDeleted += this.OnMessageDeleted;
+    }
+
+    public void IgnoreMessage(ulong id)
+    {
+      this.ignoredMessages[id] = true;
     }
 
     public async Task Initialize(IServiceProvider provider)
@@ -151,6 +159,10 @@ namespace Durandal.Services
       Cacheable<IMessage, ulong> cachedMessage,
       ISocketMessageChannel channel)
     {
+      // Don't do anything to an ignored message but stop ignoring it
+      if (this.ignoredMessages.TryRemove(cachedMessage.Id, out _))
+        return;
+
       if (cachedMessage.Value is SocketUserMessage socketMessage)
       {
         int totalPings =
